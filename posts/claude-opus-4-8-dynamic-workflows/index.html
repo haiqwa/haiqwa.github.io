@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Opus 4.8 与动态工作流（Dynamic Workflows）深度解析 - 王海权</title>
+    <meta name="description" content="中科大本硕博，现入职阿里巴巴通义实验室，专注于基座模型预训练。分享大模型、AI Infra、Vibe Coding 等技术文章。">
+    <script>
+      // Redirect hash URLs (from old HashRouter) to clean URLs
+      if (location.hash && location.hash.startsWith('#/')) {
+        location.replace(location.hash.slice(1));
+      }
+    </script>
+    <script type="module" crossorigin="" src="/assets/index-B-4EWwDV.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-BgvArVNb.css">
+  <meta property="og:locale" content="zh_CN" data-rh="true"><meta name="twitter:card" content="summary" data-rh="true"><link rel="canonical" href="https://haiqwa.github.io/posts/claude-opus-4-8-dynamic-workflows" data-rh="true"><meta name="description" content="Anthropic 发布 Claude Opus 4.8 并推出 Dynamic Workflows 功能，让模型现场编写 JS 脚本来编排数十到数百个子 Agent 完成超大规模任务。本文深度解析其架构、执行模型、真实案例与选型逻辑。" data-rh="true"><meta property="og:title" content="Claude Opus 4.8 与动态工作流（Dynamic Workflows）深度解析" data-rh="true"><meta property="og:description" content="Anthropic 发布 Claude Opus 4.8 并推出 Dynamic Workflows 功能，让模型现场编写 JS 脚本来编排数十到数百个子 Agent 完成超大规模任务。本文深度解析其架构、执行模型、真实案例与选型逻辑。" data-rh="true"><meta property="og:type" content="article" data-rh="true"><meta property="og:url" content="https://haiqwa.github.io/posts/claude-opus-4-8-dynamic-workflows" data-rh="true"><meta property="article:published_time" content="2026-06-05 16:30:00" data-rh="true"><meta property="article:tag" content="Claude" data-rh="true"><meta property="article:tag" content="Agent" data-rh="true"><meta property="article:tag" content="Workflow" data-rh="true"><meta property="article:tag" content="AI Coding" data-rh="true"><meta name="twitter:title" content="Claude Opus 4.8 与动态工作流（Dynamic Workflows）深度解析" data-rh="true"><meta name="twitter:description" content="Anthropic 发布 Claude Opus 4.8 并推出 Dynamic Workflows 功能，让模型现场编写 JS 脚本来编排数十到数百个子 Agent 完成超大规模任务。本文深度解析其架构、执行模型、真实案例与选型逻辑。" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Claude Opus 4.8 与动态工作流（Dynamic Workflows）深度解析","datePublished":"2026-06-05 16:30:00","author":{"@type":"Person","name":"王海权","url":"https://haiqwa.github.io"},"description":"Anthropic 发布 Claude Opus 4.8 并推出 Dynamic Workflows 功能，让模型现场编写 JS 脚本来编排数十到数百个子 Agent 完成超大规模任务。本文深度解析其架构、执行模型、真实案例与选型逻辑。","keywords":"Claude, Agent, Workflow, AI Coding","url":"https://haiqwa.github.io/posts/claude-opus-4-8-dynamic-workflows","mainEntityOfPage":"https://haiqwa.github.io/posts/claude-opus-4-8-dynamic-workflows","publisher":{"@type":"Person","name":"王海权"}}</script></head>
+  <body>
+    <div id="root"><header class="header"><div class="header-inner"><a class="header-logo" href="/">Home</a><nav class="header-nav"><a class="" href="/">About</a><a class="active" href="/posts">Posts</a><button class="theme-toggle" aria-label="Toggle theme">🌙</button></nav></div></header><main class="container"><section class="post-detail"><h1 class="post-detail-title">Claude Opus 4.8 与动态工作流（Dynamic Workflows）深度解析</h1><div class="post-detail-meta"><div class="post-detail-meta-items"><span data-meta-item="true">2026-06-05 16:30:00</span><span data-meta-item="true">·</span><span data-meta-item="true">Vibe Coding</span><span data-meta-item="true">·</span><span data-meta-item="true" class="post-tag">#Claude</span><span data-meta-item="true" class="post-tag">#Agent</span><span data-meta-item="true" class="post-tag">#Workflow</span><span data-meta-item="true" class="post-tag">#AI Coding</span></div></div><div class="post-content"><h2>当任务大到一次对话装不下</h2>
+<p>2026年5月28日，Anthropic 发布了 Claude Opus 4.8，同时推出了一个叫 <strong>Dynamic Workflows（动态工作流）</strong>  的研究预览功能。最让人印象深刻的案例是 Bun 作者 Jarred Sumner——他用这个功能，11天把75万行 Zig 代码迁移到 Rust，测试通过率 99.8%。</p>
+<p>这个功能解决的是一个老问题：有些任务就是太大，单个 Agent 一次对话根本干不完。全服务 Bug 排查、跨语言大迁移、多轮对抗验证……这些场景下，你需要的不是"一个聪明的大脑"，而是"一支协同的队伍"。</p>
+<p>Dynamic Workflows 的做法很有意思：<strong>让 Claude 把编排过程写成一段可执行的 JavaScript 脚本</strong>。不是 Claude 逐轮拍板下一步干什么，而是它先写好"剧本"，然后剧本自动调度几十甚至几百个子 Agent 去执行。</p>
+<h2>从单打独斗到流水线作业</h2>
+<p>要理解 Workflows 的独特之处，得先看看它之前的几种协作方式是怎么演进的。</p>
+<p>最早就是单个 Claude 会话，所有信息都挤在一个上下文窗口里，干完一件算一件。后来有了 Subagents，Claude 可以临时派几个小弟去搜资料、读代码，但调度还是 Claude 自己逐轮决策，所有结果最终还是要回到主上下文——规模一大就撑不住了。再后来有了 Agent Teams，几个 Agent 组队并行讨论，适合多维度协作，但队伍规模也就几个人。</p>
+<p>Workflows 走了一条完全不同的路：<strong>脚本才是大脑，Claude 只在节点处被临时雇佣干活</strong>。主 Agent 在脚本执行期间直接"睡觉"，只在最后被叫醒读取最终结果。这意味着中间过程不挤占上下文，自然就能调度几百个 Agent 了。</p>
+<p>简单说就是：Subagents 是"老板逐个派活"，Agent Teams 是"开会讨论"，Workflows 是"写好流水线脚本让工人自己跑"。</p>
+<h2>跑起来是怎么回事</h2>
+<p>一个 Workflow 跑起来需要四个东西：编排脚本、隔离运行时、Subagents 池、脚本变量。</p>
+<p>编排脚本是 Claude 自动生成的 JS 代码，里面定义了循环、分支、调度逻辑——这就是"大脑"。隔离运行时在本机独立执行脚本，不会阻塞你的终端。Subagents 是脚本调度出来的干活的，负责实际的代码读写和命令执行。脚本变量存放中间结果，不会污染主 Agent 的上下文窗口。</p>
+<p>脚本里有几个核心原语值得一提。<code node="[object Object]">agent(prompt)</code> 就是 spawn 一个子 Agent，可以加 <code node="[object Object]">schema</code> 让它做结构化输出。<code node="[object Object]">pipeline</code> 和 <code node="[object Object]">parallel</code> 是一对有意思的对照：<code node="[object Object]">pipeline(items, stage1, stage2, ...)</code> 是无屏障并行——每个 item 独立流过所有 stage，谁先到谁先走，不用等别人；<code node="[object Object]">parallel(thunks)</code> 则是有屏障并行，必须所有任务都完成才继续往下，适合需要汇总结果的场景。一个像流水线，一个像开完会再走。<code node="[object Object]">phase(title)</code> 和 <code node="[object Object]">log(msg)</code> 则是给用户看的进度展示，一笔带过就好。</p>
+<p>还有一个容易忽略的细节：脚本是图灵完备的。它支持 <code node="[object Object]">while</code> 循环和动态分支，这意味着它可以做"反复编译、测试、修复，直到收敛"这种事——这是静态 DAG 工作流做不到的。</p>
+<h2>怎么触发，存在哪</h2>
+<p>触发方式有三种。最直接的是在对话里提 "workflow" 关键词。也可以开 Ultracode 模式（输入 <code node="[object Object]">/effort ultracode</code>），让 Claude 自己判断要不要启用工作流。还有一种是用斜杠命令运行已保存的 Workflow，比如 <code node="[object Object]">/deep-research &lt;question&gt;</code>。</p>
+<p>保存的位置分两层：项目级的放在 <code node="[object Object]">.claude/workflows/</code>，团队可以共享；个人级的放在 <code node="[object Object]">~/.claude/workflows/</code>，自己复用。</p>
+<h2>一些硬约束</h2>
+<p>不过有几个限制得知道：并发上限是 16 个 Subagents 同时跑（受 CPU 核数限制），单次运行最多 1000 个 Agent；Subagents 默认以 <code node="[object Object]">acceptEdits</code> 模式运行，但敏感操作还是要你点确认；脚本本身没有文件系统权限，全靠 Subagent 去操作。有个挺实用的功能是可恢复性——每次运行有个 <code node="[object Object]">runId</code>，修改脚本后重跑，未变动的部分直接命中缓存，只重跑变化的部分。不过跨会话是不可恢复的，关了终端就没了。</p>
+<h2>两个真实故事</h2>
+<p><strong>Bun 从 Zig 迁移到 Rust</strong> 这个案例最能说明 Workflows 的威力。整个过程分三个阶段：先是全局分析，把 Zig 的生命周期映射到 Rust；然后并行移植数百个文件，每个文件还有双重 Review；最后是"编译-测试-修复"的 While 循环，直到所有测试收敛通过。这种"跑完一轮修一轮，跑完再修"的循环逻辑，只有图灵完备的脚本才能实现。</p>
+<p><strong>另一个案例</strong>是分析 133 个历史会话记录（130MB 的 jsonl 文件）。主 Agent 先做预处理，然后 Workflow 并行分析10个批次，最后由一个综合 Agent 汇总报告。11个 Agent，81.8万 Token，254秒完成。这种"分而治之再合并"的模式是 Workflow 的经典打法。</p>
+<h2>跟 n8n / Dify 那些有什么不同</h2>
+<p>表面上看都是"编排"，但本质区别很大。</p>
+<p>n8n、Dify、Coze 这类工具，是你事先拖拽好节点、配置好连接，然后跑起来。节点能力是固定的（HTTP 请求、数据转换之类的），整个流程是个静态 DAG。一旦遇到"需要根据上一步结果决定下一步走哪条分支"的场景，就得加一堆条件节点，越搞越复杂。</p>
+<p>Claude Code Workflow 完全反过来了：<strong>流程是模型针对当前任务现写的</strong>，不是人预先设计的。载体是命令式 JS 代码，不是可视化节点图，所以天然支持循环和动态扇出。每个节点也不是固定操作，而是一个自主的 Sub-agent，什么都能干。而且它就嵌在你的编码会话里，不需要额外平台。</p>
+<p>一句话总结：Workflow ≈ 把 n8n 的图换成模型现场生成的代码，不仅实现了自动化编排，还因为代码载体获得了处理复杂逻辑的能力。</p>
+<h2>什么时候该用</h2>
+<p>适合用的场景：代码库范围的批量排查、大规模迁移、关键决策的对抗式验证、长尾清理。说白了就是"活多、有套路、不需要人频繁拍板"的情况。</p>
+<p>不适合的场景：再小一点——一两步就搞定的小修补，杀鸡用牛刀了；再敏感一点——需要频繁人工决策的探索性工作，流水线跑着跑着就卡住等你拍板；再高风险一点——几百个 Agent 同时改代码，出问题了定位起来也头疼。</p>
+<p>一个简单的区分方式：需要"跑腿"用 Subagent，需要"开会讨论"用 Agent Teams，需要"流水线作业"用 Workflow。</p>
+<p>另外要注意成本——Token 消耗显著高于普通对话。建议从小任务开始摸索，非关键阶段可以用较小模型。还有一点，运行中途基本不接受人工输入（权限确认除外），想中途改主意的话，只能停下来重跑。</p>
+<h2>写在最后</h2>
+<p>Dynamic Workflows 代表了一个有趣的方向：<strong>编排逻辑代码化</strong>。它把原来由模型临场发挥的协调工作，变成了可控、可审、可复用的代码资产。配合 Opus 4.8 在诚实性和可靠性上的提升，这种"模型写脚本调度 Agent 舰队"的模式，很可能会成为未来编程助手的标配。</p>
+<p>当然，现在还是研究预览阶段，跨会话不可恢复、中途不能干预这些限制还在。但方向是清晰的——当 AI 编码从"帮我写个函数"走向"帮我搞定整个项目"，编排能力的确定性就成了刚需。Workflows 就是 Anthropic 给出的答案。</p></div><div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--color-border);"><a href="/posts">← Back to posts</a></div></section></main><footer class="footer"><div class="container">© 2026 · Built with React</div></footer></div>
+  
+
+</body></html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek-V4 技术深度解析：超大规模 MoE 模型的架构创新与工程实践 - 王海权</title>
+    <meta name="description" content="中科大本硕博，现入职阿里巴巴通义实验室，专注于基座模型预训练。分享大模型、AI Infra、Vibe Coding 等技术文章。">
+    <script>
+      // Redirect hash URLs (from old HashRouter) to clean URLs
+      if (location.hash && location.hash.startsWith('#/')) {
+        location.replace(location.hash.slice(1));
+      }
+    </script>
+    <script type="module" crossorigin="" src="/assets/index-B-4EWwDV.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-BgvArVNb.css">
+  <meta property="og:locale" content="zh_CN" data-rh="true"><meta name="twitter:card" content="summary" data-rh="true"><link rel="canonical" href="https://haiqwa.github.io/posts/deepseek-v4" data-rh="true"><meta name="description" content="深入解析 DeepSeek-V4-Pro 与 V4-Flash 的核心技术创新，涵盖混合注意力 HCA、上下文稀疏注意力 CSA、Contextual Parallelism 训练并行策略以及推理优化等关键工程实践。" data-rh="true"><meta property="og:title" content="DeepSeek-V4 技术深度解析：超大规模 MoE 模型的架构创新与工程实践" data-rh="true"><meta property="og:description" content="深入解析 DeepSeek-V4-Pro 与 V4-Flash 的核心技术创新，涵盖混合注意力 HCA、上下文稀疏注意力 CSA、Contextual Parallelism 训练并行策略以及推理优化等关键工程实践。" data-rh="true"><meta property="og:type" content="article" data-rh="true"><meta property="og:url" content="https://haiqwa.github.io/posts/deepseek-v4" data-rh="true"><meta property="article:published_time" content="2026-06-05 18:00:00" data-rh="true"><meta property="article:tag" content="DeepSeek" data-rh="true"><meta property="article:tag" content="MoE" data-rh="true"><meta property="article:tag" content="大模型" data-rh="true"><meta property="article:tag" content="注意力机制" data-rh="true"><meta property="article:tag" content="训练优化" data-rh="true"><meta name="twitter:title" content="DeepSeek-V4 技术深度解析：超大规模 MoE 模型的架构创新与工程实践" data-rh="true"><meta name="twitter:description" content="深入解析 DeepSeek-V4-Pro 与 V4-Flash 的核心技术创新，涵盖混合注意力 HCA、上下文稀疏注意力 CSA、Contextual Parallelism 训练并行策略以及推理优化等关键工程实践。" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"BlogPosting","headline":"DeepSeek-V4 技术深度解析：超大规模 MoE 模型的架构创新与工程实践","datePublished":"2026-06-05 18:00:00","author":{"@type":"Person","name":"王海权","url":"https://haiqwa.github.io"},"description":"深入解析 DeepSeek-V4-Pro 与 V4-Flash 的核心技术创新，涵盖混合注意力 HCA、上下文稀疏注意力 CSA、Contextual Parallelism 训练并行策略以及推理优化等关键工程实践。","keywords":"DeepSeek, MoE, 大模型, 注意力机制, 训练优化","url":"https://haiqwa.github.io/posts/deepseek-v4","mainEntityOfPage":"https://haiqwa.github.io/posts/deepseek-v4","publisher":{"@type":"Person","name":"王海权"}}</script><link rel="modulepreload" as="script" crossorigin="" href="/assets/flowDiagram-I6XJVG4X-DFbJjDu2.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/chunk-FMBD7UC4-C1cikJoQ.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/chunk-ND2GUHAM-D42HO2Eh.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/chunk-55IACEB6-D-Rx43UI.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/chunk-2J33WTMH-CwnrYuJc.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/channel-f6HXiJ5t.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/dagre-BM42HDAG-BvR2W6bS.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/graph-BlwPajkw.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/layout-Boy8vhSP.js"></head>
+  <body>
+    <div id="root"><header class="header"><div class="header-inner"><a class="header-logo" href="/">Home</a><nav class="header-nav"><a class="" href="/">About</a><a class="active" href="/posts">Posts</a><button class="theme-toggle" aria-label="Toggle theme">🌙</button></nav></div></header><main class="container"><section class="post-detail"><h1 class="post-detail-title">DeepSeek-V4 技术深度解析：超大规模 MoE 模型的架构创新与工程实践</h1><div class="post-detail-meta"><div class="post-detail-meta-items"><span data-meta-item="true">2026-06-05 18:00:00</span><span data-meta-item="true">·</span><span data-meta-item="true">大模型技术报告</span><span data-meta-item="true">·</span><span data-meta-item="true" class="post-tag">#DeepSeek</span><span data-meta-item="true" class="post-tag">#MoE</span><span data-meta-item="true" class="post-tag">#大模型</span><span data-meta-item="true" class="post-tag">#注意力机制</span><span data-meta-item="true" class="post-tag">#训练优化</span></div></div><div class="post-content"><h2>引言</h2>
+<p>在大语言模型快速发展的今天，DeepSeek团队推出了新一代模型系列——<strong>DeepSeek-V4-Pro</strong>和<strong>DeepSeek-V4-Flash</strong>。这两个模型不仅在参数量上达到了前所未有的规模，更在架构设计、训练效率和推理性能上实现了多项突破。本文将深入解析DeepSeek-V4的核心技术创新，带你了解这个支持百万token上下文的超大规模MoE（Mixture of Experts）模型是如何炼成的。</p>
+<p><img src="/images/deepseek-v4-overview.png" alt="DeepSeek-V4模型概览"></p>
+<hr>
+<h2>一、模型概览：双雄并立</h2>
+<p>DeepSeek-V4系列包含两个核心模型，它们共享相同的技术底座，但在规模和定位上各有侧重：</p>
+<table><thead><tr><th>特性</th><th>DeepSeek-V4-Pro</th><th>DeepSeek-V4-Flash</th></tr></thead><tbody><tr><td><strong>总参数量</strong></td><td>1.6T (1.6万亿)</td><td>284B (2840亿)</td></tr><tr><td><strong>激活参数</strong></td><td>49B (490亿)</td><td>13B (130亿)</td></tr><tr><td><strong>上下文长度</strong></td><td>1,000,000 tokens</td><td>1,000,000 tokens</td></tr><tr><td><strong>预训练数据</strong></td><td>33T tokens</td><td>32T tokens</td></tr></tbody></table>
+<h3>为什么选择MoE架构？</h3>
+<p>两个模型都采用了<strong>DeepSeekMoE框架</strong>和<strong>Multi-Token Prediction (MTP)</strong> 策略。MoE（混合专家）架构的核心思想是：不是让所有参数在每次前向传播中都参与计算，而是根据输入动态选择一部分"专家"网络来处理。这样做的好处是：</p>
+<ul>
+<li><strong>参数规模可以做得很大</strong>：总参数量达到万亿级别</li>
+<li><strong>推理成本可控</strong>：每次只激活少量参数（Pro激活49B，Flash激活13B）</li>
+<li><strong>专业化分工</strong>：不同专家可以专注于不同的知识领域或任务类型</li>
+</ul>
+<p>正如DeepSeek团队所言："我们高效处理超长序列的能力解锁了测试时扩展的新前沿，为长视野任务的深入研究铺平了道路，并为探索在线学习等未来范式奠定了必要基础。"</p>
+<hr>
+<h2>二、训练流水线：从预训练到后训练</h2>
+<h3>2.1 预训练阶段</h3>
+<p>DeepSeek-V4系列的预训练规模令人瞩目：</p>
+<ul>
+<li><strong>DeepSeek-V4-Flash</strong>: 在32T高质量多样化token上进行训练</li>
+<li><strong>DeepSeek-V4-Pro</strong>: 在33T高质量多样化token上进行训练</li>
+</ul>
+<p>这里的"T"代表trillion（万亿），32T token相当于约32万亿个词元。为了让你有个直观的概念，如果一个人每秒读一个词，读完这些数据需要超过100万年！</p>
+<h3>2.2 后训练阶段：两阶段精细化</h3>
+<p>后训练分为两个关键步骤：</p>
+<h4>第一阶段：独立培育领域专家</h4>
+<ol>
+<li>
+<p><strong>监督微调（SFT）</strong>：基座模型首先在高质量、领域特定的数据上进行微调，建立基础能力。</p>
+</li>
+<li>
+<p><strong>强化学习（RL）</strong>：使用<strong>Group Relative Policy Optimization (GRPO)</strong> 算法进行优化。GRPO是一种高效的强化学习方法，通过比较同一提示下多个输出的相对质量来更新模型，避免了传统RLHF中需要训练奖励模型的复杂性。</p>
+</li>
+</ol>
+<h4>第二阶段：统一模型整合</h4>
+<p>通过<strong>on-policy distillation</strong>（在线策略蒸馏）将所有独立培育的专家整合成一个统一的模型。这个过程确保了不同专家之间的知识能够有效融合，避免"各自为战"的问题。</p>
+<hr>
+<h2>三、注意力机制创新：CSA与HCA</h2>
+<p>处理百万级别的上下文长度，传统的注意力机制会面临巨大的计算和内存挑战。DeepSeek-V4设计了两种创新的注意力架构：<strong>Compressed Sparse Attention (CSA)</strong> 和 <strong>Heavily Compressed Attention (HCA)</strong>，并采用它们的交错混合配置。</p>
+<h3>3.1 CSA：压缩稀疏注意力</h3>
+<p>CSA结合了压缩和稀疏注意力两种策略：</p>
+<ol>
+<li><strong>KV缓存压缩</strong>：每 m 个token的Key-Value (KV) 缓存被压缩成一个条目</li>
+<li><strong>稀疏注意力</strong>：每个查询token只关注 k 个压缩后的KV条目</li>
+</ol>
+<p>这种设计大幅减少了注意力计算的复杂度，从传统的 O(n²) 降低到接近 O(n)。</p>
+<h3>3.2 HCA：重度压缩注意力</h3>
+<p>HCA在CSA的基础上更进一步，让更多的tokens被压缩成一个条目。CSA和HCA混合使用，在压缩率和精度之间取得了平衡。</p>
+<pre><div class="mermaid-block"><svg id="mermaid-le5ifn01" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 878.15625px;" viewBox="0 0 878.15625 222" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#mermaid-le5ifn01{font-family:inherit;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mermaid-le5ifn01 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mermaid-le5ifn01 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mermaid-le5ifn01 .error-icon{fill:#552222;}#mermaid-le5ifn01 .error-text{fill:#552222;stroke:#552222;}#mermaid-le5ifn01 .edge-thickness-normal{stroke-width:1px;}#mermaid-le5ifn01 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-le5ifn01 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-le5ifn01 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-le5ifn01 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-le5ifn01 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-le5ifn01 .marker{fill:#333333;stroke:#333333;}#mermaid-le5ifn01 .marker.cross{stroke:#333333;}#mermaid-le5ifn01 svg{font-family:inherit;font-size:16px;}#mermaid-le5ifn01 p{margin:0;}#mermaid-le5ifn01 .label{font-family:inherit;color:#333;}#mermaid-le5ifn01 .cluster-label text{fill:#333;}#mermaid-le5ifn01 .cluster-label span{color:#333;}#mermaid-le5ifn01 .cluster-label span p{background-color:transparent;}#mermaid-le5ifn01 .label text,#mermaid-le5ifn01 span{fill:#333;color:#333;}#mermaid-le5ifn01 .node rect,#mermaid-le5ifn01 .node circle,#mermaid-le5ifn01 .node ellipse,#mermaid-le5ifn01 .node polygon,#mermaid-le5ifn01 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-le5ifn01 .rough-node .label text,#mermaid-le5ifn01 .node .label text,#mermaid-le5ifn01 .image-shape .label,#mermaid-le5ifn01 .icon-shape .label{text-anchor:middle;}#mermaid-le5ifn01 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-le5ifn01 .rough-node .label,#mermaid-le5ifn01 .node .label,#mermaid-le5ifn01 .image-shape .label,#mermaid-le5ifn01 .icon-shape .label{text-align:center;}#mermaid-le5ifn01 .node.clickable{cursor:pointer;}#mermaid-le5ifn01 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-le5ifn01 .arrowheadPath{fill:#333333;}#mermaid-le5ifn01 .edgePath .path{stroke:#333333;stroke-width:1px;}#mermaid-le5ifn01 .flowchart-link{stroke:#333333;fill:none;}#mermaid-le5ifn01 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-le5ifn01 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-le5ifn01 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-le5ifn01 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-le5ifn01 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-le5ifn01 .cluster text{fill:#333;}#mermaid-le5ifn01 .cluster span{color:#333;}#mermaid-le5ifn01 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:inherit;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-le5ifn01 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-le5ifn01 rect.text{fill:none;stroke-width:0;}#mermaid-le5ifn01 .icon-shape,#mermaid-le5ifn01 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-le5ifn01 .icon-shape p,#mermaid-le5ifn01 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-le5ifn01 .icon-shape .label rect,#mermaid-le5ifn01 .image-shape .label rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-le5ifn01 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#mermaid-le5ifn01 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#mermaid-le5ifn01 .node .neo-node{stroke:#9370DB;}#mermaid-le5ifn01 [data-look="neo"].node rect,#mermaid-le5ifn01 [data-look="neo"].cluster rect,#mermaid-le5ifn01 [data-look="neo"].node polygon{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#mermaid-le5ifn01 [data-look="neo"].node path{stroke:#9370DB;stroke-width:1px;}#mermaid-le5ifn01 [data-look="neo"].node .outer-path{filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#mermaid-le5ifn01 [data-look="neo"].node .neo-line path{stroke:#9370DB;filter:none;}#mermaid-le5ifn01 [data-look="neo"].node circle{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#mermaid-le5ifn01 [data-look="neo"].node circle .state-start{fill:#000000;}#mermaid-le5ifn01 [data-look="neo"].icon-shape .icon{fill:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#mermaid-le5ifn01 [data-look="neo"].icon-shape .icon-neo path{stroke:#9370DB;filter:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#mermaid-le5ifn01 :root{--mermaid-font-family:inherit;}</style><g><marker id="mermaid-le5ifn01_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-le5ifn01_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-le5ifn01_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-le5ifn01_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="mermaid-le5ifn01_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-le5ifn01_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-le5ifn01_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-le5ifn01_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-le5ifn01_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-le5ifn01_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-le5ifn01_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="mermaid-le5ifn01_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path d="M136.263,84L146.648,77.833C157.034,71.667,177.806,59.333,191.692,53.167C205.578,47,212.578,47,216.078,47L219.578,47" id="mermaid-le5ifn01-L_A_B_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTM2LjI2MjU3MzI0MjE4NzUsInkiOjg0fSx7IngiOjE5OC41NzgxMjUsInkiOjQ3fSx7IngiOjIyMy41NzgxMjUsInkiOjQ3fV0=" data-look="classic" marker-end="url(#mermaid-le5ifn01_flowchart-v2-pointEnd)"></path><path d="M136.263,138L146.648,144.167C157.034,150.333,177.806,162.667,192.841,168.833C207.875,175,217.172,175,221.82,175L226.469,175" id="mermaid-le5ifn01-L_A_C_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_C_0" data-points="W3sieCI6MTM2LjI2MjU3MzI0MjE4NzUsInkiOjEzOH0seyJ4IjoxOTguNTc4MTI1LCJ5IjoxNzV9LHsieCI6MjMwLjQ2ODc1LCJ5IjoxNzV9XQ==" data-look="classic" marker-end="url(#mermaid-le5ifn01_flowchart-v2-pointEnd)"></path><path d="M442.156,47L446.323,47C450.49,47,458.823,47,472.348,52.815C485.873,58.63,504.589,70.259,513.947,76.074L523.306,81.889" id="mermaid-le5ifn01-L_B_D_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_D_0" data-points="W3sieCI6NDQyLjE1NjI1LCJ5Ijo0N30seyJ4Ijo0NjcuMTU2MjUsInkiOjQ3fSx7IngiOjUyNi43MDMxMjUsInkiOjg0fV0=" data-look="classic" marker-end="url(#mermaid-le5ifn01_flowchart-v2-pointEnd)"></path><path d="M435.266,175L440.581,175C445.896,175,456.526,175,471.199,169.185C485.873,163.37,504.589,151.741,513.947,145.926L523.306,140.111" id="mermaid-le5ifn01-L_C_D_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NDM1LjI2NTYyNSwieSI6MTc1fSx7IngiOjQ2Ny4xNTYyNSwieSI6MTc1fSx7IngiOjUyNi43MDMxMjUsInkiOjEzOH1d" data-look="classic" marker-end="url(#mermaid-le5ifn01_flowchart-v2-pointEnd)"></path><path d="M648.156,111L652.323,111C656.49,111,664.823,111,672.49,111C680.156,111,687.156,111,690.656,111L694.156,111" id="mermaid-le5ifn01-L_D_E_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6NjQ4LjE1NjI1LCJ5IjoxMTF9LHsieCI6NjczLjE1NjI1LCJ5IjoxMTF9LHsieCI6Njk4LjE1NjI1LCJ5IjoxMTF9XQ==" data-look="classic" marker-end="url(#mermaid-le5ifn01_flowchart-v2-pointEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A_B_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_A_C_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_B_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_D_E_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default  " id="mermaid-le5ifn01-flowchart-A-0" data-look="classic" transform="translate(90.7890625, 111)"><rect class="basic label-container" style="" x="-82.7890625" y="-27" width="165.578125" height="54"></rect><g class="label" style="" transform="translate(-52.7890625, -12)"><rect></rect><foreignObject width="105.578125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>原始Token序列</p></span></div></foreignObject></g></g><g class="node default  " id="mermaid-le5ifn01-flowchart-B-1" data-look="classic" transform="translate(332.8671875, 47)"><rect class="basic label-container" style="" x="-109.2890625" y="-39" width="218.578125" height="78"></rect><g class="label" style="" transform="translate(-79.2890625, -24)"><rect></rect><foreignObject width="158.578125" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>CSA压缩<br>每m个token压缩为1个</p></span></div></foreignObject></g></g><g class="node default  " id="mermaid-le5ifn01-flowchart-C-3" data-look="classic" transform="translate(332.8671875, 175)"><rect class="basic label-container" style="" x="-102.3984375" y="-39" width="204.796875" height="78"></rect><g class="label" style="" transform="translate(-72.3984375, -24)"><rect></rect><foreignObject width="144.796875" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>HCA压缩<br>更多token压缩为1个</p></span></div></foreignObject></g></g><g class="node default  " id="mermaid-le5ifn01-flowchart-D-5" data-look="classic" transform="translate(570.15625, 111)"><rect class="basic label-container" style="" x="-78" y="-27" width="156" height="54"></rect><g class="label" style="" transform="translate(-48, -12)"><rect></rect><foreignObject width="96" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>交错混合配置</p></span></div></foreignObject></g></g><g class="node default  " id="mermaid-le5ifn01-flowchart-E-9" data-look="classic" transform="translate(784.15625, 111)"><rect class="basic label-container" style="" x="-86" y="-27" width="172" height="54"></rect><g class="label" style="" transform="translate(-56, -12)"><rect></rect><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>高效注意力计算</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="mermaid-le5ifn01-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="mermaid-le5ifn01-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs></svg></div></pre>
+<h3>3.3 关键技术细节</h3>
+<h4>RMSNorm归一化</h4>
+<p>对于CSA和HCA，在每个query的head和压缩KV条目的唯一head上，在核心注意力操作之前执行额外的RMSNorm操作。这个归一化避免了注意力logits爆炸，提高了训练稳定性。</p>
+<h4>Partial RoPE位置编码</h4>
+<p>在DeepSeek-V4的架构中，位置编码对于模型理解序列中Token的先后顺序至关重要。RoPE（旋转位置编码）是目前大模型中最主流的位置编码方式，而<strong>Partial RoPE</strong>则是DeepSeek-V4针对其特殊的注意力机制（特别是MLA多头潜在注意力）所做的一种优化设计。</p>
+<p>关键创新点：</p>
+<ul>
+<li><strong>混合精度存储</strong>：对旋转位置编码（RoPE）维度使用BF16精度，对其余维度使用FP8精度</li>
+<li><strong>滑动窗口机制</strong>：对于每个query token，额外生成 n_win 个未压缩的KV条目，对应最近的 n_win 个tokens。在CSA和HCA的核心注意力中，这些滑动窗口中的KV条目会与压缩的KV条目一起使用</li>
+</ul>
+<h4>注意力泄漏（Attention Leakage）</h4>
+<p>这是一个非常巧妙的设计！</p>
+<p><strong>传统痛点</strong>：如果当前Query与上下文中的所有Key都不相关（比如在处理无关噪声或极长距离的无效信息时），标准Softmax依然会强行把100%的权重分配给某些Key，导致模型"被迫关注"不重要的内容，产生干扰。</p>
+<p><strong>V4的解法</strong>：通过增大可学习参数 z'h，让 exp(z'h) 变大，分母变大，所有的 s{h,i,j} 都会变小。总注意力权重可以趋近于0。</p>
+<p><strong>直观理解</strong>：模型现在可以说："这一行我看完了，但我觉得这里面没什么值得关注的"，于是它把大部分注意力"漏"掉了，而不是强行分配给某个词。</p>
+<p><strong>适配CSA/HCA的压缩机制</strong>：在CSA和HCA中，Token被压缩成块（Blocks）。如果一个块内的信息很稀疏或无关，模型可以通过调整 z'h 来降低对该块的整体关注度。这种机制让模型在处理超长上下文时更加鲁棒，能够自动过滤掉那些"虽然存在但毫无意义"的压缩块，避免噪声累积。</p>
+<h4>FP4精度加速</h4>
+<p>在lightning indexer内的注意力计算使用FP4精度执行，这在极长上下文下加速了注意力操作。FP4是4位浮点数，相比传统的FP16或BF16，内存占用减少了4倍，计算速度大幅提升。</p>
+<hr>
+<h2>四、mHC：流形约束超连接</h2>
+<p>为了增强建模能力，DeepSeek-V4引入了<strong>Manifold-Constrained Hyper-Connections (mHC)</strong>，升级了传统的残差连接。</p>
+<h3>4.1 从残差连接到超连接</h3>
+<p>让我们对比一下几种连接方式：</p>
+<table><thead><tr><th>特性</th><th>标准残差连接</th><th>标准超连接(HC)</th><th>mHC (DeepSeek-V4)</th></tr></thead><tbody><tr><td><strong>残差变换 Bₗ</strong></td><td>普通线性矩阵，无约束</td><td>普通线性矩阵</td><td><strong>双随机矩阵</strong> (通过Sinkhorn算法约束)</td></tr><tr><td><strong>输入/输出映射</strong></td><td>-</td><td>普通线性矩阵</td><td><strong>非负有界</strong> (通过Sigmoid约束)</td></tr><tr><td><strong>数值稳定性</strong></td><td>深层网络易不稳定</td><td>一般</td><td><strong>极高</strong>，适合超深网络</td></tr><tr><td><strong>计算开销</strong></td><td>极低</td><td>低</td><td>略高 (需运行Sinkhorn迭代)，但可接受</td></tr><tr><td><strong>核心目的</strong></td><td>增加残差宽度</td><td>增加残差宽度</td><td>在增加宽度的同时保证训练稳定</td></tr></tbody></table>
+<h3>4.2 mHC的核心思想</h3>
+<p>mHC就是给标准超连接加上了"数学枷锁"，让残差信号在深层网络中像水流一样平稳流动，既不会泛滥（爆炸）也不会干涸（消失），从而让DeepSeek-V4这种超大模型能够训得稳、效果好。</p>
+<p><strong>双随机矩阵</strong>：矩阵的每一行和每一列的和都等于1，这保证了信息在传递过程中不会无限放大或缩小。</p>
+<p><strong>Sinkhorn算法</strong>：这是一种迭代算法，可以将任意正矩阵转换为双随机矩阵。虽然增加了计算开销，但对于万亿参数模型的稳定性来说，这个代价是值得的。</p>
+<hr>
+<h2>五、Muon优化器：更快的收敛</h2>
+<p>DeepSeek-V4系列引入了<strong>Muon优化器</strong>，带来了更快的收敛速度和更好的训练稳定性。</p>
+<h3>5.1 Muon的挑战</h3>
+<p>Muon优化器需要完整的梯度矩阵来计算参数更新，这与<strong>Zero Redundancy Optimizer (ZeRO)</strong> 结合时面临挑战。ZeRO是一种分布式训练优化技术，通过将优化器状态、梯度和参数分散到多个GPU上来减少内存冗余。</p>
+<h3>5.2 混合ZeRO Bucket分配策略</h3>
+<p>为了解决这个问题，DeepSeek团队设计了一套混合的ZeRO Bucket分配策略：</p>
+<h4>稠密参数（Dense Parameters）</h4>
+<ol>
+<li>
+<p><strong>限制并行度 + 背包算法</strong>：限制ZeRO并行的最大规模，使用背包算法将参数矩阵分配给各个Rank（显卡/进程），确保每个Rank的负载大致平衡。</p>
+</li>
+<li>
+<p><strong>Padding对齐</strong>：为了高效执行reduce-scatter通信操作，每个Rank上的Bucket会进行填充（Padding），使其大小与所有Rank中最大的Bucket一致。</p>
+<ul>
+<li>开销：在这种设置下（每个Rank管理不超过5个参数矩阵），内存开销通常小于10%。</li>
+</ul>
+</li>
+<li>
+<p><strong>超大规模数据并行处理</strong>：当数据并行（DP）的规模超过ZeRO的限制时，多余的DP组会冗余计算Muon更新。这是一种"用计算换内存"的策略，以减少总的Bucket内存占用。</p>
+</li>
+</ol>
+<h4>MoE参数（Mixture of Experts）</h4>
+<ol>
+<li>
+<p><strong>独立优化专家</strong>：对每个Expert进行独立优化。</p>
+</li>
+<li>
+<p><strong>扁平化与重组</strong>：</p>
+<ul>
+<li>将所有层、所有Expert的SwiGLU中的down projection矩阵扁平化并拼接</li>
+<li>接着是up projection矩阵</li>
+<li>最后是gate矩阵</li>
+</ul>
+</li>
+<li>
+<p><strong>整体Padding</strong>：将拼接后的长向量进行填充，确保它能均匀分布到所有Rank上，且不拆分任何逻辑上独立的矩阵。</p>
+</li>
+<li>
+<p><strong>无并行度限制</strong>：由于Expert数量众多，对MoE参数不限制ZeRO并行度，且Padding带来的开销微乎其微。</p>
+</li>
+</ol>
+<h3>5.3 其他优化技巧</h3>
+<ul>
+<li><strong>批量执行Newton-Schulz迭代</strong>：在同一Rank上，形状相同的连续参数会自动合并，从而可以批量执行Newton-Schulz迭代，提高硬件利用率。</li>
+<li><strong>BF16稳定性</strong>：即使使用BF16（Bfloat16）精度进行矩阵乘法，Muon中的Newton-Schulz迭代依然保持稳定，这进一步提升了计算效率。</li>
+</ul>
+<hr>
+<h2>六、AI基础设施优化</h2>
+<h3>6.1 细粒度通信-计算重叠</h3>
+<p>在专家并行（Expert Parallelism）中，DeepSeek实现了一个<strong>细粒度的EP方案</strong>，将通信和计算融合到一个流水线化的内核中，实现通信-计算重叠。</p>
+<p><strong>核心思想</strong>：将专家分成多个"波"（waves），每个波包含一小部分专家。一旦某个波内的所有专家完成通信，计算就可以立即开始，无需等待其他专家。</p>
+<p><img src="/images/deepseek-v4-architecture.png" alt="DeepSeek-V4注意力架构详解"></p>
+<p><strong>关键洞察</strong>：</p>
+<ul>
+<li>完全的通信-计算重叠取决于<strong>计算-通信比率</strong>，而不仅仅是带宽</li>
+<li>每GBps的互连带宽足以隐藏6.1 TFLOP/s计算的通信开销</li>
+<li>这直接减少了后GEMM处理的开销，防止GEMM管道被激活函数计算阻塞，从而提高了整体计算吞吐量和资源利用率</li>
+</ul>
+<h3>6.2 TileLang：领域特定语言</h3>
+<p>DeepSeek采用<strong>TileLang</strong>，一种领域特定语言（DSL），在开发生产力和运行时效率之间取得平衡。</p>
+<p><strong>Host Codegen技术栈</strong>：</p>
+<ul>
+<li>在IR（中间表示）层同时生成设备端Kernel和轻量级主机端Launcher</li>
+<li>将后者基于TVM-FFI框架降低为原生主机代码（如C++）</li>
+<li>利用零拷贝张量交互和紧凑调用约定</li>
+<li>在运行时直接执行参数验证与marshaling</li>
+<li><strong>完全绕过Python解释器</strong>，将CPU端的调度开销降至微秒级以下</li>
+</ul>
+<p>传统上，主机端逻辑（如运行时合约检查）通常用Python编写以获得灵活性，因此会产生固定的每次调用成本。Host Codegen彻底解决了这个问题。</p>
+<h3>6.3 批量不变且确定性的核函数库</h3>
+<p>DeepSeek提供了高效的<strong>批量不变且确定性的核函数库</strong>，确保训练和推理之间的逐位可重现性。</p>
+<p><strong>批量不变性（Batch Invariance）</strong>：确保任何给定token的输出保持逐位相同，无论其在批次中的位置如何。</p>
+<p><strong>非确定性问题的来源</strong>：训练中的非确定性通常源于非确定性的累加顺序，通常是由于使用原子加法指令。这个问题主要发生在反向传播期间。DeepSeek通过精心设计的核函数消除了这个问题。</p>
+<hr>
+<h2>七、Contextual Parallelism：上下文并行</h2>
+<p>处理百万级别的上下文，单卡显存根本放不下。DeepSeek设计了<strong>上下文并行（Contextual Parallelism, CP）</strong> 策略。</p>
+<h3>7.1 两阶段通信策略</h3>
+<h4>第一阶段：边界数据交换与局部压缩</h4>
+<p>为解决压缩窗口（m个连续KV）可能横跨两个Rank的问题：</p>
+<ol>
+<li>每个Rank i将其末尾的m个未压缩KV条目发送给下一个Rank i+1</li>
+<li>Rank i+1将这些接收到的边界数据与本地数据合并，执行压缩操作，生成长度固定（含少量Padding）的压缩KV块</li>
+</ol>
+<p>此举确保了每个压缩组内的Token完整性，避免了因切分导致的特征失真。</p>
+<h4>第二阶段：全局收集与统一重组</h4>
+<ol>
+<li>所有CP Rank通过All-Gather操作交换本地压缩后的KV块</li>
+<li>利用融合的Select-and-Pad算子将分散的块重组为全局连续的压缩KV序列，总长度为 cp_size · m · s</li>
+<li>将所有Padding统一移至序列尾部</li>
+</ol>
+<h3>7.2 索引可见性处理</h3>
+<ul>
+<li>对于HCA和CSA索引器，各Query可见的压缩KV范围可通过规则预计算</li>
+<li>对于CSA稀疏注意力，Top-k选择器直接指定可见的压缩KV索引</li>
+</ul>
+<p><strong>核心价值</strong>：该方案在保证压缩算法数学正确性（窗口不跨越物理边界）的同时，实现了分布式环境下压缩KV Cache的高效对齐与全局一致性，支撑了长上下文场景下的并行训练效率。</p>
+<hr>
+<h2>八、Tensor-level Checkpointing：张量级激活检查点</h2>
+<h3>8.1 传统方法的局限</h3>
+<p>传统的激活检查点机制在模块级粒度上权衡次优，而手动实现细粒度控制时开发复杂度极高。</p>
+<h3>8.2 DeepSeek的创新方案</h3>
+<p>DeepSeek提出了一种<strong>基于TorchFX的张量级自动激活检查点机制</strong>：</p>
+<ol>
+<li>
+<p><strong>选择性标注</strong>：开发者仅在前向传播中选择性地标注需要重计算的独立张量，无需手动编写复杂的反向传播逻辑</p>
+</li>
+<li>
+<p><strong>自动图追踪</strong>：框架底层利用TorchFX对完整计算图进行追踪</p>
+</li>
+<li>
+<p><strong>反向遍历</strong>：通过对每个标注张量执行反向遍历，自动识别出重计算所需的最小子图</p>
+</li>
+<li>
+<p><strong>动态插入</strong>：将最小子图动态插入到反向传播中对应梯度计算之前的位置</p>
+</li>
+</ol>
+<h3>8.3 性能优化</h3>
+<ul>
+<li><strong>零拷贝显存管理</strong>：直接释放标注张量的GPU显存并复用重计算后张量的存储指针</li>
+<li><strong>自动去重</strong>：借助图追踪过程中对底层存储指针的实时监控，自动识别并去重那些共享存储空间的张量（例如Reshape操作的输入与输出）</li>
+</ul>
+<p><strong>最终效果</strong>：在完全保留自动微分框架编程便利性的前提下，实现了无额外训练开销、无需开发者关注底层内存细节的细粒度显存优化。</p>
+<hr>
+<h2>九、总结与展望</h2>
+<p>DeepSeek-V4系列模型代表了当前大语言模型技术的最高水平。从架构设计到工程实现，每一个环节都体现了DeepSeek团队的深厚功力：</p>
+<h3>核心创新点回顾</h3>
+<ol>
+<li><strong>超大规模MoE架构</strong>：1.6T总参数，仅激活49B，兼顾规模与效率</li>
+<li><strong>百万token上下文</strong>：通过CSA/HCA注意力机制实现</li>
+<li><strong>创新的位置编码</strong>：Partial RoPE + 混合精度存储</li>
+<li><strong>注意力泄漏机制</strong>：让模型学会"忽略"无关信息</li>
+<li><strong>mHC超连接</strong>：保证超深网络的训练稳定性</li>
+<li><strong>Muon优化器</strong>：配合定制化的ZeRO策略，实现快速收敛</li>
+<li><strong>细粒度通信-计算重叠</strong>：最大化硬件利用率</li>
+<li><strong>上下文并行</strong>：解决超长序列的分布式训练难题</li>
+<li><strong>张量级激活检查点</strong>：细粒度显存优化</li>
+</ol>
+<h3>对行业的启示</h3>
+<p>DeepSeek-V4的成功告诉我们：</p>
+<ul>
+<li><strong>规模不是唯一</strong>：单纯的参数堆砌已经遇到瓶颈，架构创新和工程优化同样重要</li>
+<li><strong>效率是关键</strong>：在保持高性能的同时降低推理成本，才能让大模型真正落地</li>
+<li><strong>开源开放</strong>：DeepSeek一直秉持开源理念，推动整个行业共同进步</li>
+</ul>
+<h3>未来展望</h3>
+<p>正如DeepSeek团队所说，高效处理超长序列的能力"解锁了测试时扩展的新前沿，为长视野任务的深入研究铺平了道路，并为探索在线学习等未来范式奠定了必要基础"。</p>
+<p>我们可以期待：</p>
+<ul>
+<li>更长的上下文窗口（千万级甚至亿级token）</li>
+<li>更高效的推理算法</li>
+<li>更强的专业领域能力</li>
+<li>在线学习和持续学习能力的突破</li>
+</ul>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li>DeepSeek-V4 Technical Report</li>
+<li>DeepSeekMoE Framework (Dai et al., 2024)</li>
+<li>Multi-Token Prediction Strategy</li>
+<li>Compressed Sparse Attention (DeepSeek-AI, 2025)</li>
+<li>Manifold-Constrained Hyper-Connections (Xie et al., 2026)</li>
+<li>Muon Optimizer (Jordan et al., 2024; Liu et al., 2025)</li>
+<li>Zero Redundancy Optimizer (Rajbhandari et al., 2020)</li>
+<li>TileLang (Wang et al., 2026)</li>
+</ul>
+<hr>
+<p><em>如果你觉得这篇文章对你有帮助，欢迎点赞、收藏和分享！有任何问题或想法，也欢迎在评论区交流讨论。</em></p></div><div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--color-border);"><a href="/posts">← Back to posts</a></div></section></main><footer class="footer"><div class="container">© 2026 · Built with React</div></footer></div>
+  
+
+</body></html>

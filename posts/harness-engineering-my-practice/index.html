@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harness Engineering：给 Agent 套上缰绳 - 王海权</title>
+    <meta name="description" content="中科大本硕博，现入职阿里巴巴通义实验室，专注于基座模型预训练。分享大模型、AI Infra、Vibe Coding 等技术文章。">
+    <script>
+      // Redirect hash URLs (from old HashRouter) to clean URLs
+      if (location.hash && location.hash.startsWith('#/')) {
+        location.replace(location.hash.slice(1));
+      }
+    </script>
+    <script type="module" crossorigin="" src="/assets/index-B-4EWwDV.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-BgvArVNb.css">
+  <meta property="og:locale" content="zh_CN" data-rh="true"><meta name="twitter:card" content="summary" data-rh="true"><link rel="canonical" href="https://haiqwa.github.io/posts/harness-engineering-my-practice" data-rh="true"><meta name="description" content="从 OpenAI 的百万行代码实验到知乎上的深度讨论，Harness Engineering 成了 Agent 时代最热的话题。但比起&quot;概念&quot;，我更想聊聊自己用 Claude Code 做项目时踩过的坑——以及那些坑是怎么一步步逼着我给自己的 Agent 套上缰绳的。" data-rh="true"><meta property="og:title" content="Harness Engineering：给 Agent 套上缰绳" data-rh="true"><meta property="og:description" content="从 OpenAI 的百万行代码实验到知乎上的深度讨论，Harness Engineering 成了 Agent 时代最热的话题。但比起&quot;概念&quot;，我更想聊聊自己用 Claude Code 做项目时踩过的坑——以及那些坑是怎么一步步逼着我给自己的 Agent 套上缰绳的。" data-rh="true"><meta property="og:type" content="article" data-rh="true"><meta property="og:url" content="https://haiqwa.github.io/posts/harness-engineering-my-practice" data-rh="true"><meta property="article:published_time" content="2026-06-06 21:00:00" data-rh="true"><meta property="article:tag" content="Agent" data-rh="true"><meta property="article:tag" content="Harness Engineering" data-rh="true"><meta property="article:tag" content="Claude Code" data-rh="true"><meta property="article:tag" content="AI Coding" data-rh="true"><meta name="twitter:title" content="Harness Engineering：给 Agent 套上缰绳" data-rh="true"><meta name="twitter:description" content="从 OpenAI 的百万行代码实验到知乎上的深度讨论，Harness Engineering 成了 Agent 时代最热的话题。但比起&quot;概念&quot;，我更想聊聊自己用 Claude Code 做项目时踩过的坑——以及那些坑是怎么一步步逼着我给自己的 Agent 套上缰绳的。" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Harness Engineering：给 Agent 套上缰绳","datePublished":"2026-06-06 21:00:00","author":{"@type":"Person","name":"王海权","url":"https://haiqwa.github.io"},"description":"从 OpenAI 的百万行代码实验到知乎上的深度讨论，Harness Engineering 成了 Agent 时代最热的话题。但比起\"概念\"，我更想聊聊自己用 Claude Code 做项目时踩过的坑——以及那些坑是怎么一步步逼着我给自己的 Agent 套上缰绳的。","keywords":"Agent, Harness Engineering, Claude Code, AI Coding","url":"https://haiqwa.github.io/posts/harness-engineering-my-practice","mainEntityOfPage":"https://haiqwa.github.io/posts/harness-engineering-my-practice","publisher":{"@type":"Person","name":"王海权"}}</script></head>
+  <body>
+    <div id="root"><header class="header"><div class="header-inner"><a class="header-logo" href="/">Home</a><nav class="header-nav"><a class="" href="/">About</a><a class="active" href="/posts">Posts</a><button class="theme-toggle" aria-label="Toggle theme">🌙</button></nav></div></header><main class="container"><section class="post-detail"><h1 class="post-detail-title">Harness Engineering：给 Agent 套上缰绳</h1><div class="post-detail-meta"><div class="post-detail-meta-items"><span data-meta-item="true">2026-06-06 21:00:00</span><span data-meta-item="true">·</span><span data-meta-item="true">Vibe Coding</span><span data-meta-item="true">·</span><span data-meta-item="true" class="post-tag">#Agent</span><span data-meta-item="true" class="post-tag">#Harness Engineering</span><span data-meta-item="true" class="post-tag">#Claude Code</span><span data-meta-item="true" class="post-tag">#AI Coding</span></div></div><div class="post-content"><h2>从一个真实事故说起</h2>
+<p>上周我在用 Claude Code 改博客项目的部署脚本。部署逻辑很简单：build 前端、初始化 git、force push 到 GitHub Pages。我在 CLAUDE.md 里写得明明白白："部署只操作 site/dist 目录，不要动其他文件"。</p>
+<p>Claude 读过，答应了，然后——它在执行 <code node="[object Object]">git init</code> 的时候，workdir 设成了项目根目录而不是 dist 目录。等我看到 <code node="[object Object]">git add -A</code> 把整个项目文件都加了进去，冷汗直接下来了。幸好 push 之前我手动中断了，不然整个仓库历史就被覆盖了。</p>
+<p>后来我把那条规则加粗、加大、加了感叹号——下一次部署，它又犯了一个不同但同样离谱的错：因为 Windows 上 <code node="[object Object]">rm -rf .git</code> 不存在这个命令，直接炸了。</p>
+<p>这让我开始认真想一个问题：<strong>写在 markdown 里的规则，到底算不算规则？</strong></p>
+<h2>整个行业都在想同一件事</h2>
+<p>最近 "Harness Engineering" 这个词突然火了。OpenAI 发了一篇文章，讲三个工程师五个月用 Codex 从零写出一百万行代码——没有一行是人手写的。知乎上一个问题引出了好几篇长文，有人写了五层架构，有人从控制论视角论证这是第三次闭环，有人说本质是"把控制权从对话里迁移到运行时"。</p>
+<p>大家从不同角度说的其实是同一件事：<strong>Agent 不能裸跑</strong>。</p>
+<p>这跟我的感受完全一致。我的博客项目不大，几千行代码，但即便这么小的项目，我也经历了从"vibe coding 一把梭"到"得搭点东西框住它"的完整进化。</p>
+<h2>我的三层 Harness</h2>
+<p>有人搭了五层——边界层、记忆层、交接层、认知层、技能层。那是严肃 B 端 SaaS 项目的规模。我的项目小得多，所以我的 Harness 也就三层，但思路是一样的：<strong>让约束从"提醒"变成"物理边界"</strong>。</p>
+<h3>第一层：文件即规则</h3>
+<p>最开始我用 CLAUDE.md 的方式很原始——想到什么写什么，规则越堆越多，最后变成几百行。Claude 会读，但读不等于遵守。上下文一长、任务一急，排在后面的规则就跟不存在一样。</p>
+<p>后来我做了一个重要的整理：把 CLAUDE.md 从"百科全书"变成"导航地图"。只写最关键的约束和指引，详细信息拆到专门的文件里——博客校验规则放 <code node="[object Object]">.claude/commands/check-post.md</code>，部署流程放 <code node="[object Object]">scripts/</code> 下独立脚本。CLAUDE.md 只做索引和速查。</p>
+<p>这跟 OpenAI 团队的做法一模一样。他们试过写一个超大的 AGENTS.md，结果发现：信息太多等于没有信息，Agent 开始局部模式匹配而不是真正理解约束。他们后来把 AGENTS.md 砍到 100 行，只当"目录"用，深度知识放 <code node="[object Object]">docs/</code> 目录按需加载。</p>
+<p><strong>地图，不是百科全书。</strong> 这句话值得刻在脑门上。</p>
+<h3>第二层：脚本即防线</h3>
+<p>部署事故之后，我做了一件最正确的事：把部署逻辑从"让 Claude 自己拼命令"改成"写好 Node.js 脚本，Claude 只负责调用"。</p>
+<p>原来的做法是在 CLAUDE.md 里写"部署步骤是 xxx"，然后让 Claude 按描述自己执行。问题在于 <code node="[object Object]">git init</code> 的 cwd 参数、Windows 上没有 <code node="[object Object]">rm -rf</code>、重复执行时 <code node="[object Object]">git remote add</code> 会报错——这些边界情况，你不可能在 markdown 里全部枚举。</p>
+<p>改完之后，部署脚本用 <code node="[object Object]">fs.rmSync</code> 代替 <code node="[object Object]">rm -rf</code>，用 <code node="[object Object]">execSync</code> + <code node="[object Object]">cwd</code> 参数代替 <code node="[object Object]">cd &amp;&amp;</code>，用 try/catch 处理 <code node="[object Object]">git remote add</code> 的重复问题。Claude 不需要知道这些细节，它只需要知道 <code node="[object Object]">node scripts/deploy.js</code>。</p>
+<p>LangChain 有个公式说得挺到位：<strong>Agent = Model + Harness</strong>。模型是引擎，Harness 是整车。引擎再好，没有刹车你也不敢上路。</p>
+<p>同样的思路我用在了博客校验上。以前是我自己肉眼检查 frontmatter 格式对不对、图片路径存不存在。后来写成了 <code node="[object Object]">/check-post</code> skill 和 <code node="[object Object]">new-post</code> workflow，校验规则变成了可执行的脚本。模型可以说"我检查过了"，但脚本的检查结果它没法伪造。</p>
+<h3>第三层：Skill 即 SOP</h3>
+<p>这是我最晚意识到、但投入产出比最高的一层。</p>
+<p>用 Claude Code 时间长了，你会发现有些操作你每天都在重复：新文章写完要校验格式和风格、知乎文章要抓下来做素材、部署前要确认构建成功。每次都从头 prompt，既浪费 token 又容易遗漏步骤。</p>
+<p>Skill 的本质就是 SOP（标准操作流程）的自动化。一个 markdown 文件告诉 Claude"当用户敲这个命令时，按这个顺序做这些事"。不需要写代码，不需要装插件，Claude 读 markdown 就能执行。</p>
+<p>比如我写的 <code node="[object Object]">/check-post</code> skill，校验博客文章的格式规范和写作风格。<code node="[object Object]">/fetch-zhihu</code> skill，用 Puppeteer 绕过知乎的反爬抓取文章。这些 skill 让我从"每次都重新教 Claude 怎么做"变成了"敲一个命令它就知道怎么做"。</p>
+<p>OpenAI 那篇文章里也提到了同样的模式。他们把代码清理标准编码成"黄金原则"，让 Codex 自动扫描偏差、发起重构 PR。从人工清理到自动清理——<strong>反馈回路的闭合</strong>。</p>
+<p>更直白地说：skill 层是整个 Harness 投入产出比最高的一层。边界层、记忆层、认知层都需要实际代码（几千行），只有 skill 层是纯 markdown——<strong>几乎零代码换来一整套工作流自动化</strong>。</p>
+<p>三层做下来回头看，我发现这事的底层逻辑跟控制论其实是一回事。</p>
+<h2>控制论视角：闭环才是关键</h2>
+<p>有人提供了一个特别好的视角：Harness Engineering 就是控制论的第三次现身。</p>
+<p>第一次是 1780 年代瓦特的离心调速器——飞球转速快了自动关阀门，慢了自动开阀门，反馈回路在物理层面闭合。第二次是 2010 年代的 Kubernetes——你声明目标状态，控制器持续监测实际状态，有偏差就自动修正。第三次就是现在——你把架构约束写成 Linter 规则，Agent 每次提交代码都自动验证，不合格就打回重来。</p>
+<p>三次转变的共同模式：<strong>有人造出了足够好的传感器和执行器，在那个层面把反馈回路闭合了</strong>。</p>
+<p>Harness Engineering 的传感器是测试、Linter 和可观测性，执行器是 LLM。编译器能检测语法错误，测试能验证行为，Linter 能检查风格——但这些都是底层回路。架构层面的判断，以前既没有传感器也没有执行器。直到 LLM 出现——它既能理解代码意图（传感器），又能生成新代码（执行器）。</p>
+<p>我自己的经验也印证了这一点。在部署事故之前，我的"传感器"就是我自己看终端输出，"执行器"就是我自己敲命令。反馈回路是断的——错误发生在我看到之前，等我看到已经晚了。把部署逻辑写成脚本、加上 hooks，就等于在 Agent 和生产环境之间装了一个调速器：脚本验证通过才执行下一步，不通过就停。反馈回路在脚本层面闭合了，不需要靠人盯着。</p>
+<h2>模型越强，越不能信它</h2>
+<p>模型越强，越需要一个能力反比例的外部系统框住它——因为它越能找到跳过约束交付结果的聪明方案，你唯一的对策是让约束变成物理边界而不是口头协议。换个说法：<strong>prompt 里的规则，本质上还是 token。它会被新信息挤掉，会被长上下文稀释。提醒有用，但提醒不是边界。</strong></p>
+<p>我的亲身经历完全印证了这一点。我的 Claude 读过我所有的规则，它不是"不知道"部署不该在项目根目录跑 <code node="[object Object]">git init</code>，它是在压力下"合理化"了这个决定——因为当前方案不行，它需要试别的路，而规则只是 token，可以跟其他 token 竞争注意力。</p>
+<p>所以边界要写到运行时里。你希望代码风格一致，写进 CLAUDE.md 有用，但 Lint 更可靠。你希望改动不能破坏接口，prompt 里提醒有用，但 CI 更可靠。你希望 Agent 不要乱改文件，靠一句"不要删除重要文件"很脆弱，真正该做的是文件权限直接不让改。</p>
+<p><strong>文档适合给模型导航，运行时适合给模型设边界。</strong></p>
+<h2>Harness 会不会过时？</h2>
+<p>有个争议很有意思：Anthropic 的 Claude Code 团队说他们的哲学是"模型之上尽可能薄的包装层"，而 OpenAI 搭了一套相当重的系统。两家都在用 Agent 做生产开发，但选了截然不同的路。</p>
+<p>我自己倾向于认为 Harness 会长期存在，但形态会演化。理由很简单：<strong>验证和约束是独立于工具能力的需求</strong>。编译器越来越强大，我们并没有丢掉 CI/CD。测试框架越来越好用，我们并没有删掉测试。你的架构规范不会因为模型变强就不需要了，你的部署安全检查不会因为 Agent 写得更好就可以跳过。</p>
+<p>有人提了一个尖锐的问题：那一百万行代码跑起来到底对不对？这确实是关键——Harness 的价值不只是让 Agent 写得快，更是让 Agent 写得对。IBM Research 有个数据：纯 LLM 代码审查只能捕获约 45% 的错误，LLM 和确定性工具结合后跳到 94%。模型能力只是一半，另一半靠 Harness 里的确定性工具链。</p>
+<h2>回到我的项目</h2>
+<p>写完这篇回头看，我的三层 Harness 其实只做了一件事：<strong>把能不放进 prompt 的东西拉出去，让确定性系统来做</strong>。</p>
+<p>校验规则拉出去变成了 skill 脚本，部署逻辑拉出去变成了 Node.js 程序，重复流程拉出去变成了 slash 命令。Claude 的 context 里只剩下真正需要它判断的信息，规则执行交给它看不见的脚本和工具。</p>
+<p>我三个月下来压成一句话：<strong>文档写方向，脚本写边界。方向可以讨论，边界不容商量。</strong></p>
+<p>如果你也在从 vibe coding 往真实项目走，我建议从两件事开始：把最危险的那些操作（部署、删除、重置）写成脚本而不是让 Agent 自由发挥；把最重复的那些流程（校验、提交、交接）沉淀成 skill 而不是每次重新 prompt。这两件事的投入很小，但足以让你从"提心吊胆地看 Agent 干活"变成"放心让它跑"。</p>
+<p>不是学更好的 prompt。是搭一套让 prompt 不那么重要的系统。</p></div><div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--color-border);"><a href="/posts">← Back to posts</a></div></section></main><footer class="footer"><div class="container">© 2026 · Built with React</div></footer></div>
+  
+
+</body></html>
