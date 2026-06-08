@@ -10,12 +10,12 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/"/>
   </url>
   <url>
-    <loc>https://haiqwa.github.io/posts</loc>
+    <loc>https://haiqwa.github.io/posts/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://haiqwa.github.io/posts"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://haiqwa.github.io/en/posts"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://haiqwa.github.io/posts/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://haiqwa.github.io/en/posts/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts/"/>
   </url>
   <url>
     <loc>https://haiqwa.github.io/en/</loc>
@@ -26,12 +26,12 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/"/>
   </url>
   <url>
-    <loc>https://haiqwa.github.io/en/posts</loc>
+    <loc>https://haiqwa.github.io/en/posts/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://haiqwa.github.io/posts"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://haiqwa.github.io/en/posts"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://haiqwa.github.io/posts/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://haiqwa.github.io/en/posts/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts/"/>
   </url>
   <url>
     <loc>https://haiqwa.github.io/posts/claude-opus-4-8-dynamic-workflows</loc>
