@@ -70,6 +70,14 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts/deepseek-v4"/>
   </url>
   <url>
+    <loc>https://haiqwa.github.io/posts/greyhound-fail-slow-hybrid-parallel-training</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>2026-06-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://haiqwa.github.io/posts/greyhound-fail-slow-hybrid-parallel-training"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts/greyhound-fail-slow-hybrid-parallel-training"/>
+  </url>
+  <url>
     <loc>https://haiqwa.github.io/posts/harness-engineering-my-practice</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
