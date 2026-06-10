@@ -123,4 +123,12 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://haiqwa.github.io/en/posts/lark-channel-bridge-claude-code/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts/lark-channel-bridge-claude-code/"/>
   </url>
+  <url>
+    <loc>https://haiqwa.github.io/posts/mori-idleness-is-relative/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>2026-06-10</lastmod>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://haiqwa.github.io/posts/mori-idleness-is-relative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://haiqwa.github.io/posts/mori-idleness-is-relative/"/>
+  </url>
 </urlset>
