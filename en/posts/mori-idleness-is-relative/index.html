@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en" data-theme="light"><head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MORI: Exploiting Tool-Call Idle Windows for KV Cache Offloading in Agentic Systems - Haiquan Wang</title>
+    <meta name="description" content="中科大本硕博，现入职阿里巴巴通义实验室，专注于基座模型预训练。分享大模型、AI Infra、Vibe Coding 等技术文章。">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script>
+      // Redirect hash URLs (from old HashRouter) to clean URLs
+      if (location.hash && location.hash.startsWith('#/')) {
+        location.replace(location.hash.slice(1));
+      }
+    </script>
+    <script type="module" crossorigin="" src="/assets/index-BXwNJuRe.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-CCINC-9s.css">
+  <meta name="twitter:card" content="summary" data-rh="true"><link rel="canonical" href="https://haiqwa.github.io/en/posts/mori-idleness-is-relative" data-rh="true"><meta name="description" content="MORI, proposed by UC Berkeley, is a KV Cache Offloading solution for Agentic systems. The core insight is that &quot;idleness is not a binary switch, but a relative continuous spectrum&quot; — by sorting all active requests by idleness, the busiest stay on GPU while the idlest move to CPU, achieving 20-71% throughput improvement." data-rh="true"><meta property="og:title" content="MORI: Exploiting Tool-Call Idle Windows for KV Cache Offloading in Agentic Systems" data-rh="true"><meta property="og:description" content="MORI, proposed by UC Berkeley, is a KV Cache Offloading solution for Agentic systems. The core insight is that &quot;idleness is not a binary switch, but a relative continuous spectrum&quot; — by sorting all active requests by idleness, the busiest stay on GPU while the idlest move to CPU, achieving 20-71% throughput improvement." data-rh="true"><meta property="og:type" content="article" data-rh="true"><meta property="og:url" content="https://haiqwa.github.io/en/posts/mori-idleness-is-relative" data-rh="true"><meta property="og:locale" content="en_US" data-rh="true"><meta property="article:published_time" content="2026-06-10 10:30:00" data-rh="true"><meta property="article:tag" content="LLM Serving" data-rh="true"><meta property="article:tag" content="AI Infra" data-rh="true"><meta property="article:tag" content="KV Cache Offloading" data-rh="true"><meta property="article:tag" content="Agentic AI" data-rh="true"><meta name="twitter:title" content="MORI: Exploiting Tool-Call Idle Windows for KV Cache Offloading in Agentic Systems" data-rh="true"><meta name="twitter:description" content="MORI, proposed by UC Berkeley, is a KV Cache Offloading solution for Agentic systems. The core insight is that &quot;idleness is not a binary switch, but a relative continuous spectrum&quot; — by sorting all active requests by idleness, the busiest stay on GPU while the idlest move to CPU, achieving 20-71% throughput improvement." data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"BlogPosting","headline":"MORI: Exploiting Tool-Call Idle Windows for KV Cache Offloading in Agentic Systems","datePublished":"2026-06-10 10:30:00","author":{"@type":"Person","name":"王海权","url":"https://haiqwa.github.io"},"description":"MORI, proposed by UC Berkeley, is a KV Cache Offloading solution for Agentic systems. The core insight is that \"idleness is not a binary switch, but a relative continuous spectrum\" — by sorting all active requests by idleness, the busiest stay on GPU while the idlest move to CPU, achieving 20-71% throughput improvement.","keywords":"LLM Serving, AI Infra, KV Cache Offloading, Agentic AI","url":"https://haiqwa.github.io/en/posts/mori-idleness-is-relative","mainEntityOfPage":"https://haiqwa.github.io/en/posts/mori-idleness-is-relative","publisher":{"@type":"Person","name":"王海权"}}</script></head>
+  <body>
+    <div id="root"><header class="header"><div class="header-inner"><a class="header-logo" href="/en">Home</a><nav class="header-nav"><a class="" href="/en">About</a><a class="active" href="/en/posts">Posts</a><button class="lang-toggle" aria-label="Switch language">中文</button><button class="theme-toggle" aria-label="Toggle theme">🌙</button></nav></div></header><main class="container"><section class="post-detail"><h1 class="post-detail-title">MORI: Exploiting Tool-Call Idle Windows for KV Cache Offloading in Agentic Systems</h1><div class="post-detail-meta"><div class="post-detail-meta-items"><span data-meta-item="true">2026-06-10 10:30:00</span><span data-meta-item="true">·</span><span data-meta-item="true">Paper Reading</span><span data-meta-item="true">·</span><span data-meta-item="true" class="post-tag">#LLM Serving</span><span data-meta-item="true" class="post-tag">#AI Infra</span><span data-meta-item="true" class="post-tag">#KV Cache Offloading</span><span data-meta-item="true" class="post-tag">#Agentic AI</span></div></div><div class="post-content"><blockquote>
+<p><strong>Paper</strong>: Idleness is Relative: Exploiting Tool-Call Idle Windows for Offloading in Agentic Systems with MORI
+<strong>Authors</strong>: Tian Xia, Hanchen Li, Zhifei Li, Xiaokun Chen, Hao Kang, Yifan Qiao, Yi Xu, Ion Stoica (UC Berkeley et al.)
+<strong>Published</strong>: arXiv 2026</p>
+</blockquote>
+<h2>TL;DR</h2>
+<p>In one sentence: <strong>With Agentic workloads (the loop of推理-reasoning → tool-call → reasoning → tool-call), KV Cache doesn't fit in GPU memory — but which requests should be offloaded to CPU?</strong></p>
+<p>Previous approaches used binary decisions — "has it been accessed recently?" or "is it waiting for a tool call?" — keeping each request either on GPU or CPU. The problem is these decisions are too coarse: a request might have been "recently accessed" but is about to enter a 30-second tool-call waiting period, hogging GPU memory for no reason.</p>
+<p>MORI's idea is simple: <strong>compute an idleness score between 0 and 1 for each request</strong> (the proportion of time spent waiting for tool calls), then sort by score. Low-scoring (busy) requests stay on GPU; high-scoring (idle) ones move to CPU. Combined with a dynamic mechanism to adjust GPU/CPU partition sizes, this achieves 20-71% throughput improvement and 18-43% TTFT reduction over the best baseline on real Claude Code coding agent tasks.</p>
+<hr>
+<h2>First, Let's Clarify: What Exactly Is the Problem?</h2>
+<p>To understand MORI, we need to get a few concepts straight first.</p>
+<h3>What Is KV Cache and Why Does It Run Out?</h3>
+<p>During LLM inference, every generated token needs to reference the K and V vectors (KV Cache) from all previous tokens. These vectors are stored in GPU HBM. A 7B model handling a 4K context conversation occupies roughly a few hundred MB of KV Cache. With high concurrency — say 100 simultaneous conversations — that's tens of GB.</p>
+<p>GPU HBM is precious. An H200 typically has only 80GB. A Qwen-2.5 7B model alone takes ~14GB for weights. When the remaining 60GB isn't enough for KV Cache, we have to move some conversations' KV Cache to CPU memory or even disk — this is offloading.</p>
+<h3>Offloading Has a Cost — Can't Just Move Anything</h3>
+<p>Moving KV Cache from GPU to CPU and back takes time. Copying a 500MB KV Cache from HBM to DDR5 takes a few milliseconds, and the reverse is similar. But if a program offloaded to CPU immediately needs to generate tokens again (tool call returned instantly), it has to be moved back — <strong>this round-trip overhead actually worsens latency</strong>.</p>
+<p>So the core of offloading is a prediction problem: <strong>How long will this request need GPU next?</strong> If it's about to use it soon, don't move it; if it's idle for a long time, offloading makes sense.</p>
+<h3>Agentic Workloads Make This Problem Harder</h3>
+<p>Regular chat conversations follow "user sends → model replies → user sends again." But Agentic programs are cyclical:</p>
+<ol>
+<li>Model generates reasoning tokens (thinking about what tool to call next) → <strong>uses GPU</strong></li>
+<li>Generates tool-call instructions → tool executes (file I/O, code execution, API calls, etc.) → <strong>no GPU, waiting for results</strong></li>
+<li>Tool results return, model continues generating → <strong>uses GPU again</strong></li>
+</ol>
+<p>The problem is the waiting time in step 2. It can be:</p>
+<ul>
+<li><strong>A few milliseconds</strong>: a local math calculation tool returns instantly</li>
+<li><strong>A few hundred milliseconds</strong>: a database query</li>
+<li><strong>A few seconds</strong>: a network API call</li>
+<li><strong>Tens of seconds or even minutes</strong>: waiting for user confirmation, executing time-consuming scripts</li>
+</ul>
+<p>Time spans range from 10⁻³ seconds to 10² seconds — a difference of 5 orders of magnitude.</p>
+<hr>
+<h2>Why Existing Methods Fall Short</h2>
+<p>Now that we understand the problem, the limitations of existing methods become clear.</p>
+<h3>Method 1: LRU (Least Recently Used)</h3>
+<p>LRU says: "Move the KV Cache that hasn't been used in the longest time."</p>
+<p>But LRU only looks at "when was the last access" — not "what will this request do next." In agentic scenarios, a request might have just finished generating a tool-call instruction (so it was "recently accessed"), but now needs to wait 30 seconds for the tool to return — LRU considers it "hot" and keeps it on GPU. But it doesn't need GPU at all.</p>
+<p><strong>The worse reverse problem:</strong> A request is actually busy generating tokens (busy phase), but because other requests are running on GPU, its "last access time" becomes stale. LRU will offload it — but it was actually very active.</p>
+<h3>Method 2: Binary busy/idle Labels</h3>
+<p>This is a natural improvement: detect "is this request waiting for a tool call to return?" If yes, label idle and offload to CPU; otherwise label busy and keep on GPU.</p>
+<p>But in reality, "waiting or not" isn't a binary question. For example:</p>
+<ul>
+<li>Request A: generating reasoning tokens, completely busy (idleness ≈ 0)</li>
+<li>Request B: just sent an HTTP request, typically returns in 200ms (idleness ≈ 0.3)</li>
+<li>Request C: waiting for user to click a button, could be seconds or minutes (idleness ≈ 1.0)</li>
+</ul>
+<p>If GPU can only fit 2 requests, binary labels would say: "A busy → stay on GPU, B idle → move to CPU, C idle → move to CPU." But actually B and C's "idleness" differs by an order of magnitude — B might be back soon, and offloading it only to move it back wastes resources.</p>
+<p><strong>The fundamental problem with binary labels: they discard the "how idle" information.</strong> All idle requests are treated the same, even though some are actually quite "busy."</p>
+<h3>Method 3: Fixed Timer</h3>
+<p>Someone might say: just set a timer — offload a request if it hasn't been active for 500ms.</p>
+<p>But with time spans ranging from milliseconds to minutes, <strong>no fixed value works</strong>:</p>
+<ul>
+<li>Set too short (e.g., 100ms): many requests that return after 150ms get unnecessarily offloaded, wasting round-trip overhead</li>
+<li>Set too long (e.g., 10s): requests waiting 30 seconds occupy GPU memory for 10 seconds, underutilizing resources</li>
+<li>The optimal value varies with different tasks, system configurations, and concurrency levels — there's no universal setting</li>
+</ul>
+<hr>
+<h2>MORI's Approach</h2>
+<p>MORI does three things:</p>
+<h3>1. Replace Binary Labels with Continuous Idleness Scores</h3>
+<p>For each request p, idleness is defined as:</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>I</mi><mo stretchy="false">(</mo><mi>p</mi><mo stretchy="false">)</mo><mo>=</mo><mfrac><mrow><msub><mi>T</mi><mtext>idle</mtext></msub><mo stretchy="false">(</mo><mi>p</mi><mo stretchy="false">)</mo></mrow><mrow><msub><mi>T</mi><mtext>total</mtext></msub><mo stretchy="false">(</mo><mi>p</mi><mo stretchy="false">)</mo></mrow></mfrac></mrow><annotation encoding="application/x-tex">I(p) = \frac{T_{\text{idle}}(p)}{T_{\text{total}}(p)}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mord mathnormal" style="margin-right: 0.0785em;">I</span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mclose">)</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 2.363em; vertical-align: -0.936em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 1.427em;"><span style="top: -2.314em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right: 0.1389em;">T</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 0.3361em;"><span style="top: -2.55em; margin-left: -0.1389em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">total</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mclose">)</span></span></span><span style="top: -3.23em;"><span class="pstrut" style="height: 3em;"></span><span class="frac-line" style="border-bottom-width: 0.04em;"></span></span><span style="top: -3.677em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right: 0.1389em;">T</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 0.3361em;"><span style="top: -2.55em; margin-left: -0.1389em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord text mtight"><span class="mord mtight">idle</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mclose">)</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.936em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span>
+<p>That's "time waiting for tool calls" divided by "total time." 0 means never waiting (pure inference), 1 means always waiting (pure tool calls).</p>
+<p>This score is <strong>continuous and relative</strong> — continuous in that it captures degree, relative in that it only makes sense compared to other requests.</p>
+<h3>2. Sort by Idleness and Partition into Tiers</h3>
+<p>Sort all requests by idleness score (low to high), then divide into three tiers:</p>
+<ul>
+<li><strong>GPU Queue</strong>: lowest idleness requests, stored in GPU HBM</li>
+<li><strong>CPU Queue</strong>: medium idleness requests, stored in CPU DRAM</li>
+<li><strong>Swap</strong>: highest idleness requests, stored on disk/NVM</li>
+</ul>
+<p>The key is that these tier boundaries aren't fixed — they adjust dynamically based on GPU and CPU pressure.</p>
+<h3>3. Dynamically Adjust Partition Boundaries</h3>
+<p>The system monitors GPU and CPU pressure in real-time. If GPU memory is tight (many requests queued for GPU slots), it lowers the GPU partition boundary — demoting relatively higher-idleness requests that are still on GPU to CPU. Conversely, if CPU memory is tight but GPU has space, it promotes requests back to GPU.</p>
+<p>This dynamic adjustment solves the "fixed timer doesn't work" problem — <strong>no fixed threshold needed, the system decides who should move based on current resource pressure.</strong></p>
+<p><img src="/images/mori-fig-6.png" alt="MORI Three-Tier Queue Architecture"></p>
+<hr>
+<h2>Experimental Results</h2>
+<p>Tested on real Claude Code coding agent tasks with models including Qwen-2.5 7B, Qwen-3 30B-A3B, and Llama-3.1 70B.</p>
+<p>Baseline SMG is the current SOTA general offloading method; TA+O is the Token Attention + Offloading approach.</p>
+<table><thead><tr><th>Configuration</th><th>Metric</th><th>MORI vs SMG</th><th>MORI vs TA+O</th></tr></thead><tbody><tr><td>H200 + Qwen-2.5 7B (DP=1)</td><td>Throughput</td><td><strong>+71%</strong></td><td><strong>+20%</strong></td></tr><tr><td>H200 + Qwen-2.5 7B (DP=1)</td><td>TTFT</td><td><strong>-43%</strong></td><td><strong>-18%</strong></td></tr></tbody></table>
+<p>MORI's advantage grows with higher concurrency (e.g., 80 users) — higher concurrency means tighter resources, making the "who to offload" decision more critical and impactful.</p>
+<hr>
+<h2>Key Takeaways</h2>
+<ul>
+<li><strong>The idleness concept itself isn't mathematically sophisticated</strong> — it's just a time ratio. MORI's contribution is using it as the core decision signal for offloading and proving it outperforms LRU or binary labels in agentic scenarios.</li>
+<li><strong>Tiered queues + dynamic boundaries</strong> are MORI's engineering innovations. Continuous scores solve the "degree" problem; dynamic boundaries solve the "fixed threshold doesn't work" problem.</li>
+<li><strong>The paper doesn't quantify scheduling overhead</strong> — a遗憾. Idleness sampling and sorting, promote/demote decisions, and data migration all have costs. The paper claims scheduling frequency is far lower than tool-call frequency, so amortized overhead is acceptable, but provides no specific numbers.</li>
+<li><strong>For non-agentic workloads</strong>, MORI's idleness metric degrades to request interval — not very discriminative. But the tiered architecture itself remains effective; it's just that the idleness signal is less useful.</li>
+</ul>
+<p>One-line summary: <strong>When resources are tight, don't just ask "who used it recently" — ask "who actually needs it now." The latter is a more discriminative signal in agentic scenarios.</strong></p></div><div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--color-border);"><a href="/en/posts">← Back to posts</a></div></section></main><footer class="footer"><div class="container">© 2026 · Built with React</div></footer></div>
+  
+
+</body></html>
